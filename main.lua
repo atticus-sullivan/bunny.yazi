@@ -81,10 +81,6 @@ local function sort_hops(hops)
     if t == "table" then
       -- If table, sort by first key string
       return key[1]
-    elseif t == "string" and string.lower(key) ~= key then
-      -- If uppercase letter (signifying an ephemeral hop), prepend "z"
-      -- so it gets sorted after lowercase persistent hops
-      return "z" .. key
     end
     return key
   end
@@ -96,7 +92,6 @@ end
 
 local create_special_hops = function(desc_strategy)
   local hops = {}
-  table.insert(hops, { key = "<Enter>", desc = "Create hop", path = "__MARK__" })
   table.insert(hops, { key = "<Space>", desc = "Fuzzy search", path = "__FUZZY__" })
   local tabhist = get_state("tabhist")
   local tab = get_current_tab_idx()
@@ -116,17 +111,9 @@ local function validate_options(options)
     if not key then
       return false, "key is missing"
     elseif kt == "string" then
-      if string.len(key) ~= 1 or string.upper(key) == key then
-        return false, "key must be lowercase letter"
-      end
     elseif kt == "table" then
       if #key == 0 then
         return false, "key cannot be empty table"
-      end
-      for _, char in pairs(key) do
-        if type(char) ~= "string" or string.len(char) ~= 1 or string.upper(char) == char then
-          return false, "key list must contain lowercase letters"
-        end
       end
     else
       return false, "key must be string or table"
@@ -229,27 +216,7 @@ local attempt_hop = function(hops, config)
   if not hops_idx then return end
   local selected_hop = cands[hops_idx]
   -- Handle special hops
-  if selected_hop.path == "__MARK__" then
-    local valid_chars = {
-      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-      'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-      'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
-    }
-    local mark_cands = {};
-    for _, char in pairs(valid_chars) do
-      table.insert(mark_cands, { on = char })
-    end
-    info("Press a letter to create new hop")
-    local char_idx = ya.which { cands = mark_cands, silent = true }
-    if char_idx ~= nil then
-      local selected_char = string.upper(mark_cands[char_idx].on)
-      local cwd = get_cwd()
-      table.insert(hops, { key = selected_char, path = cwd, desc = path_to_desc(cwd, config.desc_strategy) })
-      set_state("hops", sort_hops(hops))
-    end
-    return
-  elseif selected_hop.path == "__FUZZY__" then
+  if selected_hop.path == "__FUZZY__" then
     local fuzzy_hop = select_fuzzy(hops, config)
     if not fuzzy_hop then return end
     selected_hop = fuzzy_hop
